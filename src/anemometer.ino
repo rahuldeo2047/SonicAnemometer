@@ -36,13 +36,13 @@
 
 #define DISTANCE_BETWEEN_TX_RX (14.2) //cms
 #define DISTANCE_OFFSET         (2) //cms
-#define TEMPARATURE_OFFSET      (-91.12 + 40.0 - 4.0 + 3.0)
-#define WIND_COMP_OFFSET        (-54.57 - 4.0 + 1.78)
+#define TEMPARATURE_OFFSET      (-91.12+31) //(-91.12 + 40.0 - 4.0 + 3.0)
+#define WIND_COMP_OFFSET        (-54.67) //(-54.57 - 4.0 + 1.78)
 #define SOUND_SPEED             (331.2)
 
 Ultrasonic ultrasonic1(12, 13);	// An ultrasonic sensor HC-04
 
-RunningMedian samples = RunningMedian(60);
+RunningMedian samples = RunningMedian(61);
 
 float last_wind_speed_component_mps;
 unsigned long last_time, last_mpss_time;
@@ -171,7 +171,7 @@ void loop() {
   Serial.println();
 
   // If time is some duration
-  if(millis()-last_time>updateThingSpeakInterval)
+  if(millis()-last_time>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
   {
    last_time = millis();
 
