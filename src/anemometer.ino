@@ -34,6 +34,8 @@
 #include <Ultrasonic.h>
 #include <RunningMedian.h>
 
+#define TEST_PAIR_ONE (2)
+
 #define DISTANCE_BETWEEN_TX_RX (14.2) //cms
 #define DISTANCE_OFFSET         (2) //cms
 #define TEMPARATURE_OFFSET      (0) //(-91.12+31) //(-91.12 + 40.0 - 4.0 + 3.0)
@@ -45,8 +47,8 @@ Ultrasonic ultrasonic_1(12, 15);	// An ultrasonic sensor HC-04
 Ultrasonic ultrasonic_2(14, 13);	// An another ultrasonic sensor HC-04
 
 
-RunningMedian samples_1 = RunningMedian(61);
-RunningMedian samples_2 = RunningMedian(61);
+RunningMedian samples_1 = RunningMedian(31);
+RunningMedian samples_2 = RunningMedian(31);
 
 
 float last_wind_speed_component_mps_1;
@@ -128,6 +130,17 @@ void loop() {
   }
   // Sample ping
   unsigned long time_us_raw_1=  ultrasonic_1.timeRead()*2.0; // direct receiving x2.0
+  delay(60);
+
+
+  #if TEST_PAIR_ONE != 1
+  unsigned long time_us_raw_2=ultrasonic_2.timeRead()*2.0; // direct receiving x2.0
+  #else
+  unsigned long time_us_raw_2=0;
+  #endif
+
+  //delay(60);
+
   samples_1.add(time_us_raw_1);
   float filtered_time_us_1 = samples_1.getMedian();
   float measured_dist_1 = filtered_time_us_1/CM + DISTANCE_OFFSET; // invalid
@@ -141,7 +154,7 @@ void loop() {
 
   // wait for some time
 
-  unsigned long time_us_raw_2=  ultrasonic_2.timeRead()*2.0; // direct receiving x2.0
+
   samples_2.add(time_us_raw_2);
   float filtered_time_us_2 = samples_2.getMedian();
   float measured_dist_2 = filtered_time_us_2/CM + DISTANCE_OFFSET; // invalid
@@ -181,7 +194,6 @@ void loop() {
   Serial.print(", ");
   Serial.print(temparature_dC_2); // Prints the time on the unit (microseconds)
   Serial.println("°C, temparature: ");
-  Serial.print(temparature_dC_2); // Prints the time on the unit (microseconds)
   Serial.print(temparature_dC); // Prints the time on the unit (microseconds)
   Serial.println("°C");
   //Serial.print(", ");
@@ -201,13 +213,15 @@ void loop() {
   Serial.print(wind_speed_component_mps_2);
   Serial.println("m/s , wind speed: ");
   //Serial.print(", ");
-  Serial.print(wind_speed_component);
+  Serial.print(wind_speed_component_mps_2-wind_speed_component_mps_1);
   Serial.println("m/s");
 
   Serial.print("wind accelerration: ");
   Serial.print(wind_speed_component_rate_mpss_1);
   Serial.print(", ");
   Serial.print(wind_speed_component_rate_mpss_2); // Prints the time on the unit (microseconds)
+  Serial.print(", ");
+  Serial.print(wind_speed_component_rate_mpss_2-wind_speed_component_rate_mpss_1);
   Serial.println("m/s²");
 
   Serial.print("Sensor 01: ");
@@ -219,7 +233,7 @@ void loop() {
 
   // If time is some duration
   // TODO
-  /*
+
   if(millis()-last_time>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
   {
    last_time = millis();
@@ -233,21 +247,21 @@ void loop() {
      {
        String tsData = apiWritekey;
        tsData +="&field1=";
-       tsData += String(filtered_time_us); // filtered time_us
+       tsData += String(filtered_time_us_2 - filtered_time_us_1); // filtered time_us
        tsData +="&field2=";
-       tsData += String(measured_dist); // distance_between_tx_rx_cm
+       tsData += String(measured_dist_2); // distance_between_tx_rx_cm
        tsData +="&field3=";
        tsData += String(temparature_dC); // temparature_dC
        tsData +="&field4=";
-       tsData += String(measured_speed_mps);  //measured_speed_mps
+       tsData += String(measured_speed_mps_2-measured_speed_mps_1);  //measured_speed_mps
        tsData +="&field5=";
-       tsData += String(wind_speed_component_mps); //wind_speed_component_mps
+       tsData += String(wind_speed_component); //wind_speed_component_mps
        tsData +="&field6=";
-       tsData += String(time_us_raw);
+       tsData += String(time_us_raw_2-time_us_raw_1);
        tsData +="&field7=";
        tsData += String(millis()/1000.0); // seconds
        tsData +="&field8=";
-       tsData += String(wind_speed_component_rate_mpss);
+       tsData += String(wind_speed_component_rate_mpss_2-wind_speed_component_rate_mpss_1);
        tsData += "\r\n\r\n";
 
        client.print("POST /update HTTP/1.1\n");
@@ -265,9 +279,9 @@ void loop() {
      client.stop();
     }
   }
-  */
 
-  delay(250);
+
+  delay(250-120);
 
 
 }
