@@ -247,17 +247,17 @@ void loop() {
      {
        String tsData = apiWritekey;
        tsData +="&field1=";
-       tsData += String(filtered_time_us_2 - filtered_time_us_1); // filtered time_us
+       tsData += String(filtered_time_us_1); // filtered time_us
        tsData +="&field2=";
-       tsData += String(measured_dist_2); // distance_between_tx_rx_cm
+       tsData += String(filtered_time_us_2); // distance_between_tx_rx_cm
        tsData +="&field3=";
-       tsData += String(temparature_dC); // temparature_dC
+       tsData += String(measured_speed_mps_1); // temparature_dC
        tsData +="&field4=";
-       tsData += String(measured_speed_mps_2-measured_speed_mps_1);  //measured_speed_mps
+       tsData += String(measured_speed_mps_2);  //measured_speed_mps
        tsData +="&field5=";
        tsData += String(wind_speed_component); //wind_speed_component_mps
        tsData +="&field6=";
-       tsData += String(time_us_raw_2-time_us_raw_1);
+       tsData += String(time_us_raw_1);
        tsData +="&field7=";
        tsData += String(millis()/1000.0); // seconds
        tsData +="&field8=";
