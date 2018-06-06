@@ -51,8 +51,8 @@ RunningMedian samples_1 = RunningMedian(31);
 RunningMedian samples_2 = RunningMedian(31);
 
 
-float last_wind_speed_component_mps_1;
-unsigned long last_mpss_time_1;
+float last_wind_speed_component;
+unsigned long last_mpss_time;
 
 float last_wind_speed_component_mps_2;
 unsigned long last_mpss_time_2;
@@ -73,7 +73,7 @@ WiFiClient client;
   //char thingSpeakAddress[] = "api.thingspeak.com";
   //String writeAPIKey = "K3CC6GPXNVQULRRX";
   // GET https://api.thingspeak.com/update?api_key=K3CC6GPXNVQULRRX&field1=0&field1=0&field1=0
-  const int updateThingSpeakInterval = 15 * 1000; // Time interval in milliseconds to update ThingSpeak (number of seconds * 1000 = interval)
+  const int updateThingSpeakInterval = 20 * 1000; // Time interval in milliseconds to update ThingSpeak (number of seconds * 1000 = interval)
 
 
 
@@ -143,33 +143,38 @@ void loop() {
 
   samples_1.add(time_us_raw_1);
   float filtered_time_us_1 = samples_1.getMedian();
-  float measured_dist_1 = filtered_time_us_1/CM + DISTANCE_OFFSET; // invalid
-  float measured_speed_mps_1 = (((DISTANCE_BETWEEN_TX_RX)/100.0)/(filtered_time_us_1/1000000.0));
-  float temparature_dC_1 = ((measured_speed_mps_1 - SOUND_SPEED) / 0.6) + TEMPARATURE_OFFSET;
-  float wind_speed_component_mps_1 = measured_speed_mps_1 - SOUND_SPEED + WIND_COMP_OFFSET;
-  float wind_speed_component_rate_mpss_1 = (wind_speed_component_mps_1 - last_wind_speed_component_mps_1) / ( millis() - last_mpss_time_1 );
 
-  last_mpss_time_1 = millis();
-  last_wind_speed_component_mps_1 = wind_speed_component_mps_1;
+  //
+  // float measured_dist_1 = filtered_time_us_1/CM + DISTANCE_OFFSET; // invalid
+  // float measured_speed_mps_1 = (((DISTANCE_BETWEEN_TX_RX)/100.0)/(filtered_time_us_1/1000000.0));
+  // float temparature_dC_1 = ((measured_speed_mps_1 - SOUND_SPEED) / 0.6) + TEMPARATURE_OFFSET;
+  // float wind_speed_component_mps_1 = measured_speed_mps_1 - SOUND_SPEED + WIND_COMP_OFFSET;
 
   // wait for some time
 
 
   samples_2.add(time_us_raw_2);
   float filtered_time_us_2 = samples_2.getMedian();
-  float measured_dist_2 = filtered_time_us_2/CM + DISTANCE_OFFSET; // invalid
-  float measured_speed_mps_2 = (((DISTANCE_BETWEEN_TX_RX)/100.0)/(filtered_time_us_2/1000000.0));
-  float temparature_dC_2 = ((measured_speed_mps_2 - SOUND_SPEED) / 0.6) + TEMPARATURE_OFFSET;
-  float wind_speed_component_mps_2 = measured_speed_mps_2 - SOUND_SPEED + WIND_COMP_OFFSET;
-  float wind_speed_component_rate_mpss_2 = (wind_speed_component_mps_2 - last_wind_speed_component_mps_2) / ( millis() - last_mpss_time_2 );
-
-  last_mpss_time_2 = millis();
-  last_wind_speed_component_mps_2 = wind_speed_component_mps_2;
 
 
-  float wind_speed_component = measured_speed_mps_2-measured_speed_mps_1;
-  float temparature_dC = ((wind_speed_component - SOUND_SPEED) / 0.6);
+  // float measured_dist_2 = filtered_time_us_2/CM + DISTANCE_OFFSET; // invalid
+  // float measured_speed_mps_2 = (((DISTANCE_BETWEEN_TX_RX)/100.0)/(filtered_time_us_2/1000000.0));
+  // float temparature_dC_2 = ((measured_speed_mps_2 - SOUND_SPEED) / 0.6) + TEMPARATURE_OFFSET;
+  // float wind_speed_component_mps_2 = measured_speed_mps_2 - SOUND_SPEED + WIND_COMP_OFFSET;
 
+  //-------------------------------
+
+  // minus sign is for direction omly
+  double windspeed_component = (((DISTANCE_BETWEEN_TX_RX)/100.0)*((1000000.0/filtered_time_us_1)-(1000000.0/filtered_time_us_2)));
+  double sound_speed_measured = (((DISTANCE_BETWEEN_TX_RX)/100.0)*((1000000.0/filtered_time_us_1)+(1000000.0/filtered_time_us_2)));
+
+  float wind_speed_component_rate_mpss = (windspeed_component - last_wind_speed_component) / ( millis() - last_mpss_time );
+
+  last_mpss_time = millis();
+  last_wind_speed_component = windspeed_component;
+
+  float temparature_virtual = (sound_speed_measured*sound_speed_measured/402.31466)-273.15;
+  float temparature_real = temparature_virtual - 0.135;
   // Sample MPU
   // Wire.beginTransmission(MPU_addr);
   // Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
@@ -187,51 +192,26 @@ void loop() {
   Serial.print(filtered_time_us_1); // Prints the time on the unit (microseconds)
   Serial.print(", ");
   Serial.print(filtered_time_us_2); // Prints the time on the unit (microseconds)
-  Serial.println("us");
+  Serial.println(" us");
 
-  Serial.print("Temparatures ");
-  Serial.print(temparature_dC_1); // Prints the time on the unit (microseconds)
+  Serial.print("windspeed_component: ");
+  Serial.print(windspeed_component); // Prints the time on the unit (microseconds)
   Serial.print(", ");
-  Serial.print(temparature_dC_2); // Prints the time on the unit (microseconds)
-  Serial.println("°C, temparature: ");
-  Serial.print(temparature_dC); // Prints the time on the unit (microseconds)
-  Serial.println("°C");
-  //Serial.print(", ");
-  Serial.print(wind_speed_component);
-  Serial.println("m/s");
+  Serial.print(sound_speed_measured); // Prints the time on the unit (microseconds)
+  Serial.println(" m/s");
 
-  Serial.print("Measured speeds: ");
-  Serial.print(measured_speed_mps_1 ); // Prints the time on the unit (microseconds)
+  Serial.print("Temparatures: ");
+  Serial.print(temparature_virtual); // Prints the time on the unit (microseconds)
   Serial.print(", ");
-  Serial.print(measured_speed_mps_2 );
-  Serial.println("m/s");
+  Serial.print(temparature_real); // Prints the time on the unit (microseconds)
+  Serial.println(" °C");
 
-
-  Serial.print("wind speed: ");
-  Serial.print(wind_speed_component_mps_1); // Prints the time on the unit (microseconds)
+  Serial.print("times: ");
+  Serial.print(time_us_raw_1 ); // Prints the time on the unit (microseconds)
   Serial.print(", ");
-  Serial.print(wind_speed_component_mps_2);
-  Serial.println("m/s , wind speed: ");
-  //Serial.print(", ");
-  Serial.print(wind_speed_component_mps_2-wind_speed_component_mps_1);
-  Serial.println("m/s");
-
-  Serial.print("wind accelerration: ");
-  Serial.print(wind_speed_component_rate_mpss_1);
-  Serial.print(", ");
-  Serial.print(wind_speed_component_rate_mpss_2); // Prints the time on the unit (microseconds)
-  Serial.print(", ");
-  Serial.print(wind_speed_component_rate_mpss_2-wind_speed_component_rate_mpss_1);
-  Serial.println("m/s²");
-
-  Serial.print("Sensor 01: ");
-  Serial.print(measured_dist_1);
-  Serial.print(", ");
-  Serial.print(measured_dist_2); // Prints the distance on the default unit (centimeters)
-  Serial.println("cm");
-  Serial.println();
-
-  // If time is some duration
+  Serial.print(time_us_raw_2 );
+  Serial.println(" us");
+  Serial.println();// If time is some duration
   // TODO
 
   if(millis()-last_time>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
@@ -251,17 +231,17 @@ void loop() {
        tsData +="&field2=";
        tsData += String(filtered_time_us_2); // distance_between_tx_rx_cm
        tsData +="&field3=";
-       tsData += String(measured_speed_mps_1); // temparature_dC
+       tsData += String(temparature_virtual); // temparature_dC
        tsData +="&field4=";
-       tsData += String(measured_speed_mps_2);  //measured_speed_mps
+       tsData += String(temparature_real);  //measured_speed_mps
        tsData +="&field5=";
-       tsData += String(wind_speed_component); //wind_speed_component_mps
+       tsData += String(windspeed_component); //wind_speed_component_mps
        tsData +="&field6=";
        tsData += String(time_us_raw_1);
        tsData +="&field7=";
-       tsData += String(millis()/1000.0); // seconds
+       tsData += String(time_us_raw_2);//millis()/1000.0); // seconds
        tsData +="&field8=";
-       tsData += String(wind_speed_component_rate_mpss_2-wind_speed_component_rate_mpss_1);
+       tsData += String(wind_speed_component_rate_mpss);
        tsData += "\r\n\r\n";
 
        client.print("POST /update HTTP/1.1\n");
