@@ -35,6 +35,8 @@
 
 #include "RemoteDebug.h"
 RemoteDebug Debug;
+unsigned long last_time_telnet_talked;
+const int updateTelnetInterval = 1 * 1000;
 
 
 #if RUN_MED==1
@@ -47,7 +49,7 @@ RemoteDebug Debug;
 #define RUM_MED (2)
 
 //#define DISTANCE_BETWEEN_TX_RX (13.3) //(14.2) //cms
-float DISTANCE_BETWEEN_TX_RX = 15.0;
+float DISTANCE_BETWEEN_TX_RX = 14.92;
 #define DISTANCE_OFFSET         (2) //cms
 #define TEMPARATURE_OFFSET      (0) //(-91.12+31) //(-91.12 + 40.0 - 4.0 + 3.0)
 #define WIND_COMP_OFFSET        (0) //(-54.67) //(-54.57 - 4.0 + 1.78)
@@ -74,7 +76,7 @@ unsigned long last_mpss_time_2;
 
 #include <ESP8266WiFi.h>
 
-unsigned long last_time;
+unsigned long last_time_thingspoke;
 String apiWritekey = "K3CC6GPXNVQULRRX";
 const char* ssid = "JioFi3_3FA858";
 const char* password = "mnajk1h6tz" ;
@@ -236,26 +238,22 @@ void loop() {
   // GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
   // GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   // GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
-  DEBUG_V("* Dist: %f cms (VERBOSE)\n", DISTANCE_BETWEEN_TX_RX);
   Serial.print("dist: ");
   Serial.print(DISTANCE_BETWEEN_TX_RX);
   Serial.println(" cms");
 
-  DEBUG_V("* Times: %f µs %f µs (VERBOSE)\n", filtered_time_us_1, filtered_time_us_2);
   Serial.print("Filtered times: ");
   Serial.print(filtered_time_us_1); // Prints the time on the unit (microseconds)
   Serial.print(", ");
   Serial.print(filtered_time_us_2); // Prints the time on the unit (microseconds)
   Serial.println(" µs");
 
-  DEBUG_V("* windspeed_component: %f m/s %f m/s (VERBOSE)\n", windspeed_component, sound_speed_measured);
   Serial.print("windspeed_component: ");
   Serial.print(windspeed_component); // Prints the time on the unit (microseconds)
   Serial.print(", ");
   Serial.print(sound_speed_measured); // Prints the time on the unit (microseconds)
   Serial.println(" m/s");
 
-  DEBUG_V("* Temparatures: %f °C %f °C %f °C (VERBOSE)\n", temparature_virtual, temparature_real, temparature);
   Serial.print("Temparatures: ");
   Serial.print(temparature_virtual); // Prints the time on the unit (microseconds)
   Serial.print(", ");
@@ -264,7 +262,6 @@ void loop() {
   Serial.print(temparature);
   Serial.println(" °C");
 
-  DEBUG_V("* raw times: %u µs %u µs (VERBOSE)\n\n", time_us_raw_1, time_us_raw_2);
   Serial.print("raw times: ");
   Serial.print(time_us_raw_1 ); // Prints the time on the unit (microseconds)
   Serial.print(", ");
@@ -273,10 +270,20 @@ void loop() {
   Serial.println();// If time is some duration
   // TODO
 
-  if(millis()-last_time>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
+  if(millis()-last_time_telnet_talked>updateTelnetInterval)
+  {
+    last_time_telnet_talked = millis();
+    DEBUG_V("* Dist: %f cms (VERBOSE)\n", DISTANCE_BETWEEN_TX_RX);
+    DEBUG_V("* Times: %f µs %f µs (VERBOSE)\n", filtered_time_us_1, filtered_time_us_2);
+    DEBUG_V("* windspeed_component: %f m/s %f m/s (VERBOSE)\n", windspeed_component, sound_speed_measured);
+    DEBUG_V("* Temparatures: %f °C %f °C %f °C (VERBOSE)\n", temparature_virtual, temparature_real, temparature);
+    DEBUG_V("* raw times: %u µs %u µs (VERBOSE)\n\n", time_us_raw_1, time_us_raw_2);
+  }
+
+  if(millis()-last_time_thingspoke>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
   {
 
-   last_time = millis();
+   last_time_thingspoke = millis();
 
    if(WiFi.status() == WL_CONNECTED)
    {
