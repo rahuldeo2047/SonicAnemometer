@@ -39,9 +39,9 @@ uint32_t mLastTime = 0;
 uint32_t mTimeSeconds = 0;
 
 
-#define HOST_NAME "remotedebug-heavy_wind_alert"
+//#define HOST_NAME "remotedebug-heavy_wind_alert"
 
-void rd_setup()
+void rd_setup(const char* HOST_NAME)
 {
   // Register host name in WiFi and mDNS
 

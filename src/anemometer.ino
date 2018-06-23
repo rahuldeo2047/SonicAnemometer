@@ -38,6 +38,11 @@ RemoteDebug Debug;
 unsigned long last_time_telnet_talked;
 const int updateTelnetInterval = 1 * 1000;
 
+#ifdef ESP8266
+extern "C" {
+  #include "user_interface.h"
+}
+#endif
 
 #if RUN_MED==1
 #include <RunningMedian.h>
@@ -49,15 +54,27 @@ const int updateTelnetInterval = 1 * 1000;
 #define RUM_MED (2)
 
 //#define DISTANCE_BETWEEN_TX_RX (13.3) //(14.2) //cms
-float DISTANCE_BETWEEN_TX_RX = 14.92;
+float DISTANCE_BETWEEN_TX_RX = 15.8;
 #define DISTANCE_OFFSET         (2) //cms
 #define TEMPARATURE_OFFSET      (0) //(-91.12+31) //(-91.12 + 40.0 - 4.0 + 3.0)
 #define WIND_COMP_OFFSET        (0) //(-54.67) //(-54.57 - 4.0 + 1.78)
 #define SOUND_SPEED             (331.2)
 
+//D5 D6 D7 D8
 
-Ultrasonic ultrasonic_1(12, 15);	// An ultrasonic sensor HC-04
-Ultrasonic ultrasonic_2(14, 13);	// An another ultrasonic sensor HC-04
+//static const uint8_t D5   = 14; Trig1
+//static const uint8_t D6   = 12; Echo2
+//static const uint8_t D7   = 13; Trig2
+//static const uint8_t D8   = 15; Echo1
+
+// Trig , Echo 14, 12
+#define TRIG_1 (14)
+#define ECHO_1 (12)
+#define TRIG_2 (13)
+#define ECHO_2 (15)
+
+Ultrasonic ultrasonic_1(14, 12);	// An ultrasonic sensor HC-04
+Ultrasonic ultrasonic_2(13, 15);	// An another ultrasonic sensor HC-04
 
 #if RUN_MED==1
 RunningMedian samples_1 = RunningMedian(31);
@@ -78,8 +95,8 @@ unsigned long last_mpss_time_2;
 
 unsigned long last_time_thingspoke;
 String apiWritekey = "K3CC6GPXNVQULRRX";
-const char* ssid = "JioFi3_3FA858";
-const char* password = "mnajk1h6tz" ;
+const char* ssid = "HH7351HH"; //"JioFi3_3FA858";
+const char* password = "hh1537hh"; //"mnajk1h6tz" ;
 
 const char* server = "api.thingspeak.com";
 float resolution=3.3/1023;
@@ -108,11 +125,51 @@ int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 bool whether_post_wifi_connect_setup_done;
 
+const char * HOST_NAME="remotedebug-heavy_wind_alert";
+
+#include <CircularBuffer.h>
+
+const uint8_t QUEUE_SIZE = 6;
+
+ CircularBuffer<unsigned long, QUEUE_SIZE> Q1;
+ CircularBuffer<unsigned long, QUEUE_SIZE> Q2;
+
+volatile unsigned long it1 =0,  it2 =0;
+volatile bool echoed_1=false, echoed_2=false ;
+void handleInterrupt_e1()
+{
+  it1 = ESP.getCycleCount();
+  Q1.push(it1);
+  echoed_1 = true;
+  //Serial.print("*");
+  //detachInterrupt(ECHO_1);
+}
+
+void handleInterrupt_e2()
+{
+  it2 = ESP.getCycleCount();
+  Q2.push(it2);
+  echoed_2 = true;
+  //Serial.print("@");
+  //detachInterrupt(ECHO_2);
+}
+
 void setup() {
   Serial.begin(115200);
   WiFi.disconnect();
   delay(10);
-  WiFi.begin(ssid, password);
+  //WiFi.begin(ssid, password);
+
+  pinMode(TRIG_1, OUTPUT);
+  pinMode(ECHO_1, INPUT);
+  pinMode(TRIG_2, OUTPUT);
+  pinMode(ECHO_2, INPUT);
+
+  digitalWrite(TRIG_1, LOW);
+  digitalWrite(TRIG_2, LOW);
+
+  attachInterrupt(digitalPinToInterrupt(ECHO_1), handleInterrupt_e1, RISING);
+  attachInterrupt(digitalPinToInterrupt(ECHO_2), handleInterrupt_e2, RISING);
 
   Serial.println();
   Serial.println();
@@ -124,6 +181,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
   whether_post_wifi_connect_setup_done = false;
+
 
   //
   // while (WiFi.status() != WL_CONNECTED) {
@@ -151,7 +209,7 @@ void loop() {
     if(WiFi.status() == WL_CONNECTED)
     {
       setup_OTA();
-      rd_setup();
+      rd_setup(HOST_NAME);
       whether_post_wifi_connect_setup_done = true;
     }
   }
@@ -167,15 +225,71 @@ void loop() {
     }
   }
   // Sample ping
-  unsigned long time_us_raw_1=  ultrasonic_1.timeRead()*2.0; // direct receiving x2.0
-  delay(60);
+
+  /*
+  #define TRIG_1 (14)
+  #define ECHO_1 (12)
+  #define TRIG_2 (13)
+  #define ECHO_2 (15)
+  */
+
+  digitalWrite(TRIG_1, HIGH);
+  digitalWrite(TRIG_2, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_1, LOW);
+  digitalWrite(TRIG_2, LOW);
+
+  unsigned long tbase = ESP.getCycleCount()-35;
+
+  //if( (true != echoed_1) && (true != echoed_2) )
+  while( (Q1.size()==0) && (Q2.size()==0) )
+  {
+    yield();
+    //delay(250);
+    //return;
+    if(Serial.available())
+    {
+      char c = Serial.read();
+      if('r'==c)
+      {
+        ESP.reset();
+      }
+    }
+  }
+
+  echoed_1 = false;
+  echoed_2 = false;
+
+  unsigned long t1s , t2s;
+
+while(Q1.size() > 0)//   uint8_t *peek(uint8_t* itm)
+ {
+   t1s = Q1.pop();
+   t1s = clockCyclesToMicroseconds(t1s - tbase);
+   //Serial.print(" times 1: ");
+   //Serial.println(t1s);
+ }
+
+ while(Q2.size() > 0)//   uint8_t *peek(uint8_t* itm)
+ {
+   t2s = Q2.pop();
+   t2s = clockCyclesToMicroseconds(t2s - tbase);
+   //Serial.print(" times 2: ");
+   //Serial.println(t2s);
+ }
+
+Serial.println();
+
+   unsigned long time_us_raw_1= t1s;// t1;//ultrasonic_1.timeRead()*2.0; // direct receiving x2.0
+  //delay(60);
 
 
   #if TEST_PAIR_ONE != 1
-  unsigned long time_us_raw_2=ultrasonic_2.timeRead()*2.0; // direct receiving x2.0
+  unsigned long time_us_raw_2= t2s;//ultrasonic_2.timeRead()*2.0; // direct receiving x2.0
   #else
   unsigned long time_us_raw_2=0;
   #endif
+
 
   //delay(60);
 
@@ -280,6 +394,28 @@ void loop() {
     DEBUG_V("* raw times: %u µs %u µs (VERBOSE)\n\n", time_us_raw_1, time_us_raw_2);
   }
 
+//delay(250-120);
+digitalWrite(LED_BUILTIN, HIGH);
+
+delay(250);
+
+digitalWrite(LED_BUILTIN, LOW);
+
+if(Serial.available())
+{
+  char c = Serial.read();
+  if('+'==c)
+  {
+    DISTANCE_BETWEEN_TX_RX += 0.1;
+  }
+  if('-'==c)
+  {
+    DISTANCE_BETWEEN_TX_RX -= 0.1;
+  }
+}
+
+
+   return;
   if(millis()-last_time_thingspoke>updateThingSpeakInterval) // && samples.getCount() == samples.getSize())
   {
 
